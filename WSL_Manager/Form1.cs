@@ -98,11 +98,11 @@ namespace WslManagerFramework
             {
                 if (originalText == "停止")
                 {
-                    await Task.Run(() => _stopAction(DistroName));
+                    await StopWslAsync(DistroName);
                 }
                 else
                 {
-                    await Task.Run(() => _launchAction(DistroName));
+                    await LaunchWslBackgroundAsync(DistroName);
                 }
                 
                 // 少し待ってからステータス更新
