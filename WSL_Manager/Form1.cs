@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using WSL_Manager.Services;
 using WslManagerFramework.Models;
 using WslManagerFramework.Services;
 using WslManagerFramework.UI;
@@ -22,7 +23,11 @@ namespace WslManagerFramework
         private readonly RichTextBox _logBox = new RichTextBox();
         private string[] _allDistros = new string[0];
         private readonly Dictionary<string, DistroRow> _distroRows = new Dictionary<string, DistroRow>();
-        
+        private readonly DescriptionStore _store = new DescriptionStore("WslLauncher"); // 保存先: %AppData%\WslLauncher\descriptions.json
+        private readonly FavoriteStore _fav = new FavoriteStore("WslLauncher"); // %AppData%\WslLauncher\favorites.json
+
+
+
         // サービス
         private LogService _logService;
         private TrayService _trayService;
@@ -169,7 +174,7 @@ namespace WslManagerFramework
 
             // ログエリア
             _logBox.Dock = DockStyle.Bottom;
-            _logBox.Height = 120;
+            _logBox.Height = 90;
             _logBox.ReadOnly = true;
             _logBox.BackColor = Color.FromArgb(30, 30, 30);
             _logBox.ForeColor = Color.White;
@@ -491,6 +496,7 @@ namespace WslManagerFramework
                     {
                         UpdateDistroStatus(distroName);
                     }
+                    ResortAllInContainer(_panel);
                 }
                 
                 _status.Text = $"ディストリ数: {_allDistros.Length}";
@@ -514,7 +520,9 @@ namespace WslManagerFramework
             foreach (var name in distros)
             {
                 _panel.Controls.Add(MakeDistroRow(name));
+
             }
+            ResortAllInContainer(_panel);
         }
 
         private void UpdateDistroStatus(string distroName)
@@ -549,19 +557,44 @@ namespace WslManagerFramework
         {
             var row = new Panel
             {
-                Height = 60,
+                Height = 40,
                 Width = 750,
-                Padding = new Padding(8),
-                Margin = new Padding(4),
+                Padding = new Padding(4),
+                Margin = new Padding(3),
                 BackColor = Color.FromArgb(51, 51, 55),
+                Tag = distroName
+            };
+
+            var isFav = _fav.IsFavorite(distroName);
+            var lblStar = new Label
+            {
+                Text = isFav ? "★" : "☆",
+                Location = new Point(6, 8),
+                Size = new Size(20, 22),
+                Font = new Font("Segoe UI", 12F, FontStyle.Regular),
+                ForeColor = isFav ? Color.Gold : Color.Gray,
+                BackColor = Color.Transparent,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Cursor = Cursors.Hand
+            };
+            lblStar.Click += (_, __) =>
+            {
+                bool nowFav = !_fav.IsFavorite(distroName);
+                _fav.SetFavorite(distroName, nowFav);
+
+                lblStar.Text = nowFav ? "★" : "☆";
+                lblStar.ForeColor = nowFav ? Color.Gold : Color.Gray;
+
+                // ★ 同じコンテナ内で即座に上部配置へ
+                ResortRowsInSameContainer(row);
             };
 
             var lbl = new Label
             {
                 Text = distroName,
-                Location = new Point(10, 18),
-                Size = new Size(180, 24),
-                Font = new Font("Microsoft Sans Serif", 10F, FontStyle.Regular),
+                Location = new Point(28, 8),
+                Size = new Size(180, 22),
+                Font = new Font("Microsoft Sans Serif", 8.5F, FontStyle.Regular),
                 TextAlign = ContentAlignment.MiddleLeft,
                 ForeColor = Color.White,
                 BackColor = Color.Transparent,
@@ -571,9 +604,9 @@ namespace WslManagerFramework
             var lblStatus = new Label
             {
                 Text = status,
-                Location = new Point(200, 18),
-                Size = new Size(80, 24),
-                Font = new Font("Microsoft Sans Serif", 9F, FontStyle.Bold),
+                Location = new Point(200, 8),
+                Size = new Size(80, 22),
+                Font = new Font("Microsoft Sans Serif", 8F, FontStyle.Bold),
                 TextAlign = ContentAlignment.MiddleCenter,
                 BackColor = Color.Transparent,
             };
@@ -596,9 +629,9 @@ namespace WslManagerFramework
 
             var btnBackground = new Button
             {
-                Location = new Point(290, 12),
-                Size = new Size(60, 36),
-                Font = new Font("Microsoft Sans Serif", 9F, FontStyle.Regular),
+                Location = new Point(290, 4),
+                Size = new Size(60, 28),
+                Font = new Font("Microsoft Sans Serif", 8F, FontStyle.Regular),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 TextAlign = ContentAlignment.MiddleCenter,
@@ -620,13 +653,13 @@ namespace WslManagerFramework
             var btnLaunch = new Button
             {
                 Text = "cmdで開く",
-                Location = new Point(360, 12),
-                Size = new Size(130, 36),
-                Font = new Font("Microsoft Sans Serif", 9F, FontStyle.Regular),
+                Location = new Point(360, 4),
+                Size = new Size(120, 28),
+                Font = new Font("Microsoft Sans Serif", 8F, FontStyle.Regular),
                 BackColor = Color.FromArgb(0, 122, 204),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                TextAlign = ContentAlignment.MiddleLeft,
+                TextAlign = ContentAlignment.MiddleCenter,
             };
             btnLaunch.FlatAppearance.BorderColor = Color.FromArgb(0, 122, 204);
             btnLaunch.Click += (_, __) => 
@@ -644,8 +677,8 @@ namespace WslManagerFramework
             var btnDropdown = new Button
             {
                 Text = "▼",
-                Location = new Point(490, 12),
-                Size = new Size(25, 36),
+                Location = new Point(480, 4),
+                Size = new Size(25, 28),
                 Font = new Font("Microsoft Sans Serif", 8F, FontStyle.Regular),
                 BackColor = Color.FromArgb(0, 100, 180),
                 ForeColor = Color.White,
@@ -680,13 +713,31 @@ namespace WslManagerFramework
             _tip.SetToolTip(btnLaunch, "cmdで開きます");
             _tip.SetToolTip(btnDropdown, "他の起動方法を選択");
 
+            var txtDescription = new TextBox
+            {
+                Text = "",
+                Location = new Point(515, 4),
+                Size = new Size(240, 28),
+                Font = new Font("Microsoft Sans Serif", 13F, FontStyle.Regular)
+               
+            };
+
+            txtDescription.Text = _store.Get(distroName) ?? "";
+
+            row.Controls.Add(lblStar);
             row.Controls.Add(lbl);
             row.Controls.Add(lblStatus);
             row.Controls.Add(btnBackground);
             row.Controls.Add(btnLaunch);
             row.Controls.Add(btnDropdown);
+            row.Controls.Add(txtDescription);
 
-            var distroRow = new DistroRow(distroName, row, lblStatus, btnBackground, btnLaunch, btnDropdown, 
+            txtDescription.TextChanged += (_, __) =>
+            {
+                _store.Set(distroName, txtDescription.Text);
+            };
+
+            var distroRow = new DistroRow(distroName, row, lblStatus, btnBackground, btnLaunch, btnDropdown, txtDescription,
                                         LaunchWslBackgroundAsync, StopWslAsync, UpdateDistroStatus, _tip);
             _distroRows[distroName] = distroRow;
             distroRow.UpdateStatus(status);
@@ -720,13 +771,53 @@ namespace WslManagerFramework
             }
         }
 
+        // ★ 同じコンテナ内で「お気に入り→非お気に入り」、同順位は名前順に並べ替える
+        private void ResortRowsInSameContainer(Control anyRowInContainer)
+        {
+            var host = anyRowInContainer?.Parent;
+            if (host == null) return;
+
+            var rows = host.Controls.Cast<Control>().ToList();
+
+            rows.Sort((a, b) =>
+            {
+                var nameA = a.Tag as string ?? "";
+                var nameB = b.Tag as string ?? "";
+
+                int favA = _fav.IsFavorite(nameA) ? 0 : 1; // 0 が上・1 が下
+                int favB = _fav.IsFavorite(nameB) ? 0 : 1;
+
+                int cmp = favA.CompareTo(favB);
+                if (cmp != 0) return cmp;
+
+                return string.Compare(nameA, nameB, StringComparison.CurrentCultureIgnoreCase);
+            });
+
+            // Clear/Add でもOKですが、Z順だけ変えるなら SetChildIndex が安全
+            host.SuspendLayout();
+            // 最終並び rows[0] が最上に来るよう、逆順で index=0 に積む
+            for (int i = rows.Count - 1; i >= 0; i--)
+            {
+                host.Controls.SetChildIndex(rows[i], 0);
+            }
+            host.ResumeLayout();
+        }
+
+        // 初期表示後に一度だけ全体を整列したい場合に使うユーティリティ
+        public void ResortAllInContainer(Control host)
+        {
+            if (host == null) return;
+            if (host.Controls.Count == 0) return;
+            ResortRowsInSameContainer(host.Controls[0]);
+        }
+
+
         private void Form1_Resize(object sender, EventArgs e)
         {
             if (WindowState == FormWindowState.Minimized && _settings.MinimizeToTray)
             {
                 Hide();
                 ShowInTaskbar = false;
-                _trayService?.ShowBalloonTip(2000, "WSL Manager", "タスクトレイに最小化されました", ToolTipIcon.Info);
             }
         }
 

@@ -1,6 +1,8 @@
+using Newtonsoft.Json;
 using System;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using WSL_Manager.Services;
 
 namespace WslManagerFramework.UI
 {
@@ -12,13 +14,15 @@ namespace WslManagerFramework.UI
         public Button BackgroundButton { get; }
         public Button LaunchButton { get; }
         public Button DropdownButton { get; }
-        
+
+        public TextBox TxtDescription { get; set; }
+
         private Func<string, Task> _launchAction;
         private Func<string, Task> _stopAction;
         private System.Action<string> _updateStatusAction;
         private ToolTip _tooltip;
 
-        public DistroRow(string distroName, Panel panel, Label statusLabel, Button backgroundButton, Button launchButton, Button dropdownButton, 
+        public DistroRow(string distroName, Panel panel, Label statusLabel, Button backgroundButton, Button launchButton, Button dropdownButton,TextBox txtDescription,
                         Func<string, Task> launchAction, Func<string, Task> stopAction, System.Action<string> updateStatusAction, ToolTip tooltip)
         {
             DistroName = distroName;
@@ -27,6 +31,7 @@ namespace WslManagerFramework.UI
             BackgroundButton = backgroundButton;
             LaunchButton = launchButton;
             DropdownButton = dropdownButton;
+            TxtDescription = txtDescription;
             _launchAction = launchAction;
             _stopAction = stopAction;
             _updateStatusAction = updateStatusAction;
