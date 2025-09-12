@@ -9,7 +9,8 @@ namespace WslManagerFramework.Models
     public class AppSettings
     {
         public bool MinimizeToTray { get; set; } = true;
-        
+        public bool RunAtStartup { get; set; } = true;
+
         private static string SettingsPath => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "WSLManager", "settings.xml");

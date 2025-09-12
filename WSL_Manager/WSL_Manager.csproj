@@ -66,6 +66,7 @@
     <Compile Include="Services\DescriptionsService.cs" />
     <Compile Include="Services\FavoriteService.cs" />
     <Compile Include="Services\LogService.cs" />
+    <Compile Include="Services\StartUpService.cs" />
     <Compile Include="Services\TrayService.cs" />
     <Compile Include="Services\WslInstallService.cs" />
     <Compile Include="Services\WslService.cs" />

@@ -26,6 +26,9 @@ namespace WslManagerFramework
         private readonly DescriptionStore _store = new DescriptionStore("WslLauncher"); // 保存先: %AppData%\WslLauncher\descriptions.json
         private readonly FavoriteStore _fav = new FavoriteStore("WslLauncher"); // %AppData%\WslLauncher\favorites.json
 
+        private CheckBox _runAtStartupCheckBox;
+        private bool _isApplyingUi; // 反映中フラグ（イベント再入防止）
+
 
 
         // サービス
@@ -266,6 +269,18 @@ namespace WslManagerFramework
             };
             _minimizeToTrayCheckBox.CheckedChanged += OnMinimizeToTrayChanged;
 
+            _runAtStartupCheckBox = new CheckBox
+            {
+                Text = "Windows サインイン時に自動起動する",
+                Location = new Point(20, 80),
+                Size = new Size(350, 25),
+                Font = new Font("Microsoft Sans Serif", 10F),
+                ForeColor = Color.White,
+                BackColor = Color.Transparent,
+                Checked = _settings.RunAtStartup
+            };
+            _runAtStartupCheckBox.CheckedChanged += OnRunAtStartupChanged;
+
             var saveButton = new Button
             {
                 Text = "設定を保存",
@@ -294,11 +309,40 @@ namespace WslManagerFramework
 
             settingsPanel.Controls.Add(minimizeLabel);
             settingsPanel.Controls.Add(_minimizeToTrayCheckBox);
+
+            settingsPanel.Controls.Add(_runAtStartupCheckBox);
+
             settingsPanel.Controls.Add(saveButton);
             settingsPanel.Controls.Add(resetButton);
 
             settingsTab.Controls.Add(settingsPanel);
         }
+
+        private void OnRunAtStartupChanged(object sender, EventArgs e)
+        {
+            if (_isApplyingUi) return; // プログラム側でチェックをいじった時は無視
+
+            try
+            {
+                // レジストリへ反映（必要なら引数を追加: "--minimized" 等）
+                StartupRegistrar.SetEnabled(_runAtStartupCheckBox.Checked /*, args: "--minimized"*/);
+
+                // 設定モデルへ反映＆保存
+                _settings.RunAtStartup = _runAtStartupCheckBox.Checked;
+                _settings.Save();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"自動起動の更新に失敗しました。\n{ex.Message}",
+                    "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                // 実レジストリ状態にUIを戻す（再入防止しながら）
+                _isApplyingUi = true;
+                _runAtStartupCheckBox.Checked = StartupRegistrar.IsEnabled();
+                _isApplyingUi = false;
+            }
+        }
+
 
         private void OnMinimizeToTrayChanged(object sender, EventArgs e)
         {
@@ -828,7 +872,6 @@ namespace WslManagerFramework
                 e.Cancel = true;
                 Hide();
                 ShowInTaskbar = false;
-                _trayService?.ShowBalloonTip(2000, "WSL Manager", "タスクトレイに最小化されました", ToolTipIcon.Info);
             }
             else if (e.CloseReason == CloseReason.UserClosing)
             {
